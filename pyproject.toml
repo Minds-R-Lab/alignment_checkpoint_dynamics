@@ -1,0 +1,16 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rwloop"
+version = "0.1.0"
+description = "Read/write self-alignment of transformer MLP units: dynamics, controls, interventions"
+requires-python = ">=3.10"
+dependencies = ["torch>=2.3","transformers>=4.45","datasets>=2.20","safetensors>=0.4","numpy>=1.26","scipy>=1.12","pandas>=2.2","matplotlib>=3.8","pyyaml>=6.0","tqdm>=4.66"]
+
+[tool.setuptools.packages.find]
+include = ["rwloop*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]

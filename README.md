@@ -32,6 +32,8 @@ git clone <this repo> && cd rwloop
 python -m venv .venv && source .venv/bin/activate
 pip install -e . && pip install pytest
 pytest -q            # 18 tests on tiny random models, ~30 s, no downloads
+# or, on the GPU workbench, everything in one go (see run_all.sh header):
+bash run_all.sh quick   # ~1 h pipeline validation, then: bash run_all.sh full
 ```
 
 Python ≥ 3.10, CUDA GPU for scripts 02–04 (one H100 is plenty), CPU is fine for 01 and 06.

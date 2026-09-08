@@ -241,3 +241,11 @@ def test_continue_pretraining_snapshots_and_matched_order():
     assert set(s1) == {2, 6} and "firing" in s1[2] and "exposure" in s1[2] and s1[2]["firing"][0].shape == (64,)
     assert not np.allclose(s1[6]["mlp"][1], s3[6]["mlp"][1])     # intervention changed the trajectory
     assert np.allclose(l1[:3], l3[:3]) and not np.allclose(l1[3:], l3[3:])
+
+
+def test_gated_gate_cosines_have_unit_shape():
+    """REGRESSION: 01_checkpoint_sweep crashed on OLMo-2 because cos(gate, up) passed two (m,d) matrices."""
+    m = tiny_llama(); L = get_layers(m)[0]; R, W, G = L.read(), L.write(), L.gate()
+    assert M.unit_cos(G, W).shape == (64,) and M.unit_cos(G, R.T).shape == (64,)
+    with pytest.raises(ValueError):
+        M.unit_cos(G, R)          # the bug: broadcasting (64,32)*(32,64)

@@ -51,7 +51,7 @@ for name in args.models:
                 G = L.gate()
                 s.update(cos_write_gate_mean=float(M.unit_cos(G, W).mean()),
                          cos_write_gate_abs_gt02=float(np.mean(np.abs(M.unit_cos(G, W)) > 0.2)),
-                         cos_up_gate_mean=float(M.unit_cos(G, R).mean()))
+                         cos_up_gate_mean=float(M.unit_cos(G, R.T).mean()))   # both (m,d): pass R as (d,m)
             if L.v_mod is not None:
                 ov = M.ov_unit_cos(L.v(), L.o())
                 s.update(ov_mean=float(ov.mean()), ov_frac_gt05=float(np.mean(ov > 0.5)), ov_frac_lt05=float(np.mean(ov < -0.5)))

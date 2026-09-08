@@ -28,7 +28,7 @@ from rwloop.io import outdir, save
 
 p = argparse.ArgumentParser()
 p.add_argument("--model", required=True); p.add_argument("--revision", default="step8000")
-p.add_argument("--arm", required=True, help="control | component:<alpha> | bias:<beta>:<random|aligned>")
+p.add_argument("--arm", required=True, help="control | component:<alpha> | bias:<beta>:<random|aligned>[:frozen]")
 p.add_argument("--seed", type=int, default=0)
 p.add_argument("--layers", nargs="*", type=int, default=None, help="intervened layers; default all but 0")
 p.add_argument("--steps", type=int, default=8000); p.add_argument("--intervene_at", type=int, default=200,
@@ -48,8 +48,8 @@ layers = get_layers(model)
 target = [layers[i] for i in (args.layers if args.layers is not None else range(1, len(layers)))]
 stream = token_stream(tok, args.dataset, args.dataset_config, seq_len=args.seq_len, batch_size=args.batch_size, seed=args.seed)
 evalb = eval_batches(tok, 500_000, args.seq_len, 8, args.dataset, args.dataset_config)
-snap_steps = sorted({args.intervene_at + d for d in args.snap_after} | {args.steps})
-total = max(snap_steps)
+total = args.steps
+snap_steps = sorted({args.intervene_at + d for d in args.snap_after if args.intervene_at + d <= total} | {total})
 
 state = {"groups": None, "vbs": [], "cos_pre": None}
 first_batch = next(token_stream(tok, args.dataset, args.dataset_config, seq_len=args.seq_len, batch_size=4, seed=999))
@@ -68,18 +68,21 @@ def on_step(step, model, opt):
         cos_by_layer = {L.idx: state["cos_pre"]["mlp"][L.idx] for L in layers}
         vbs, groups = shift_bias(model, target, beta, args.bias_frac, args.seed * 1000 + 123, first_batch, args.device, select, cos_by_layer)
         state["vbs"], state["groups"] = vbs, groups
-        # register the new trainable biases with the optimizer of the running loop
-        opt.add_param_group({"params": [vb.b for vb in vbs], "weight_decay": 0.0})
+        if len(kind) > 3 and kind[3] == "frozen":
+            for vb in vbs: vb.b.requires_grad_(False)          # dose held fixed for the whole run
+        else:
+            opt.add_param_group({"params": [vb.b for vb in vbs], "weight_decay": 0.0})
     print(f"[arm {args.arm}] intervened at step {step}; L1 cos now {np.mean(state['cos_pre']['mlp'][min(1, len(layers)-1)]):+.3f}", flush=True)
 
 snaps, losses = continue_pretraining(model, stream, total, args.lr, args.device, snap_steps, window=args.window,
                                      bf16=args.bf16, on_step=on_step, want_exposure=True)
+final_eval = eval_loss(model, evalb, args.device)           # with the (trained) virtual biases in place
 for vb in state["vbs"]:
     vb.detach()
-final_eval = eval_loss(model, evalb, args.device)
+final_eval_nobias = eval_loss(model, evalb, args.device) if state["vbs"] else final_eval
 tag = args.arm.replace(":", "_")
 out = dict(model=args.model, revision=args.revision, arm=args.arm, seed=args.seed, intervene_at=args.intervene_at,
            layers=[L.idx for L in target], snaps=snaps, losses=losses, groups=state["groups"], cos_pre=state["cos_pre"],
-           bias_final=[vb.b.detach().cpu().numpy() for vb in state["vbs"]], eval_loss=final_eval)
+           bias_final=[vb.b.detach().cpu().numpy() for vb in state["vbs"]], eval_loss=final_eval, eval_loss_bias_removed=final_eval_nobias)
 save(out, os.path.join(outdir("04_intervene"), f"{args.model.replace('/', '_')}_{args.revision}_{tag}_seed{args.seed}.pkl"))
 print(f"done {tag} seed {args.seed}: eval loss {final_eval:.4f}")

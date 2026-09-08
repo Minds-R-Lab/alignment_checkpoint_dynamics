@@ -26,6 +26,10 @@ def load_model(name: str, revision: str | None = None, dtype: str = "float32", d
 
 def _iter_text(dataset: str, config: str | None, split: str, seed: int, buffer: int):
     from datasets import load_dataset
+    try:
+        import zstandard  # noqa: F401  (the Pile mirrors are zstd-compressed jsonl)
+    except ImportError as e:
+        raise ImportError("pip install zstandard  (needed to stream zstd-compressed datasets such as the Pile)") from e
     ds = load_dataset(dataset, config, split=split, streaming=True)
     return ds.shuffle(seed=seed, buffer_size=buffer)
 

@@ -31,8 +31,11 @@ predicted sign in ≥ 4/5 seeds; layer-mean f unchanged (|Δf̄| < 0.01). Regrow
 recovers ≥ 50 % of the control value (attractor). Falsified if the Spearman has the wrong sign in ≥ 3/5
 seeds or |Spearman| < 0.1 at both snapshots.
 
-## H5 — f → c (Stage 4, arm `bias:<β>:random`, β ∈ {0.5, 1, 2})
-Randomly selected 20 % "up" and 20 % "down" groups; biases trainable.
+## H5 — f → c (Stage 4, arm `bias:<β>:random[:frozen]`, β ∈ {0.5, 1, 2})
+Randomly selected 20 % "up" and 20 % "down" groups. Amendment after the first real-model run (8 Sep 2026,
+one seed): with TRAINABLE biases the optimizer removed the shift within ~500 steps at β ≤ 1, so the realized
+dose was ≈ 0 and the test was vacuous; the `:frozen` variant holds the dose. Both are reported; the
+frozen variant is the primary test from now on.
 Prediction at +500 and +2000: Δc(down) > 0 and Δc(up) ≤ 0 with Δc(down) − Δc(up) > 0.02 at β = 1 in
 ≥ 4/5 seeds; per-unit Spearman(realized Δf, Δc) < −0.2; monotone dose-response on the down side
 (Δc(β=2) > Δc(β=1) > Δc(β=0.5)); saturation on the up side is allowed and expected. Also record whether

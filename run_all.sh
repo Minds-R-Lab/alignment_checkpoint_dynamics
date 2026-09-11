@@ -102,9 +102,31 @@ do_stage4() { for s in $SEEDS; do for arm in $ARMS; do
 do_analyze() { run_stage analyze python scripts/05_analyze_interventions.py --model "$MODEL" --revision step8000
                log "report: results/05_analysis/report.md"; }
 
+# ---- Stage 7: single-layer forward arm (c -> f), removing the cross-layer confound in H4.
+# One layer intervened at a time; matched controls are the Stage-4 control_seed*.pkl (same seed).
+# Override LAYERS7 (default "1 2 3 4") and ARMS7 (default "component:-1 component:2").
+do_stage7() { LAYERS7="${LAYERS7:-1 2 3 4}"; ARMS7="${ARMS7:-component:-1 component:2}"
+              for s in $SEEDS; do
+                f="results/04_intervene/${MTAG}_step8000_control_seed${s}.pkl"
+                if [ ! -f "$f" ]; then
+                  run_stage stage7 python scripts/04_intervene.py --model "$MODEL" --revision step8000 --arm control \
+                      --seed "$s" --steps "$STEPS" --bf16 --device "$DEVICE" --dataset "$DATASET"
+                fi
+                for L in $LAYERS7; do for arm in $ARMS7; do
+                  g="results/07_single_layer/${MTAG}_step8000_${arm//:/_}_L${L}_seed${s}.pkl"
+                  if [ -f "$g" ]; then log "skip $arm L$L seed $s (exists)"; continue; fi
+                  run_stage stage7 python scripts/04_intervene.py --model "$MODEL" --revision step8000 --arm "$arm" \
+                      --layers "$L" --outdir 07_single_layer --seed "$s" --steps "$STEPS" --bf16 \
+                      --device "$DEVICE" --dataset "$DATASET"
+                done; done
+              done
+              run_stage stage7 python scripts/07_single_layer_forward.py --model "$MODEL" --revision step8000
+              log "report: results/07_single_layer/report.md"; }
+
 case "$MODE" in
   quick|full) do_tests; do_toy; do_stage1; do_stage2; do_stage3; do_stage4; do_analyze ;;
   tests) do_tests ;; toy) do_toy ;; stage1) do_stage1 ;; stage2) do_stage2 ;; stage3) do_stage3 ;; stage4) do_stage4 ;; analyze) do_analyze ;;
-  *) echo "usage: bash run_all.sh [quick|full|tests|toy|stage1|stage2|stage3|stage4|analyze]"; exit 1 ;;
+  stage7|singlelayer) do_stage7 ;;
+  *) echo "usage: bash run_all.sh [quick|full|tests|toy|stage1|stage2|stage3|stage4|analyze|stage7]"; exit 1 ;;
 esac
 log "done ($MODE). Results under $(pwd)/results, logs under $(pwd)/logs"

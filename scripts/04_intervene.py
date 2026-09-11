@@ -40,6 +40,9 @@ p.add_argument("--lr", type=float, default=3e-4); p.add_argument("--batch_size",
 p.add_argument("--seq_len", type=int, default=2048); p.add_argument("--bias_frac", type=float, default=0.2)
 p.add_argument("--dataset", default="monology/pile-uncopyrighted"); p.add_argument("--dataset_config", default=None)
 p.add_argument("--device", default="cuda"); p.add_argument("--bf16", action="store_true")
+p.add_argument("--outdir", default="04_intervene",
+               help="results subdirectory to write to (single-layer forward arms use 07_single_layer so "
+                    "they never collide with the all-layer Stage-4 arms in the Stage-5 analysis)")
 args = p.parse_args()
 
 torch.manual_seed(args.seed); np.random.seed(args.seed)
@@ -81,8 +84,10 @@ for vb in state["vbs"]:
     vb.detach()
 final_eval_nobias = eval_loss(model, evalb, args.device) if state["vbs"] else final_eval
 tag = args.arm.replace(":", "_")
+if args.layers is not None:                      # keep single-/few-layer arms from colliding by filename
+    tag += "_L" + "-".join(str(i) for i in args.layers)
 out = dict(model=args.model, revision=args.revision, arm=args.arm, seed=args.seed, intervene_at=args.intervene_at,
            layers=[L.idx for L in target], snaps=snaps, losses=losses, groups=state["groups"], cos_pre=state["cos_pre"],
            bias_final=[vb.b.detach().cpu().numpy() for vb in state["vbs"]], eval_loss=final_eval, eval_loss_bias_removed=final_eval_nobias)
-save(out, os.path.join(outdir("04_intervene"), f"{args.model.replace('/', '_')}_{args.revision}_{tag}_seed{args.seed}.pkl"))
+save(out, os.path.join(outdir(args.outdir), f"{args.model.replace('/', '_')}_{args.revision}_{tag}_seed{args.seed}.pkl"))
 print(f"done {tag} seed {args.seed}: eval loss {final_eval:.4f}")

@@ -5,7 +5,7 @@ from rwloop import metrics as M
 from rwloop.adapters import get_layers, firing_module
 from rwloop.hooks import collect, Recorder
 from rwloop.intervene import ablate, snapshot, restore, scale_aligned, shift_bias, VirtualBias
-from rwloop.analysis import partial_spearman, cross_lagged, dose_response
+from rwloop.analysis import partial_spearman, cross_lagged, dose_response, forward_arm
 from rwloop.train import continue_pretraining
 
 rng = np.random.default_rng(0)
@@ -219,6 +219,21 @@ def test_dose_response_recovers_planted_slope():
     dc = -0.2 * df + 0.25 * df ** 2 - 0.2 * c0 * df + 0.005 * rng.standard_normal(2000)
     d = dose_response(df, dc, c0)
     assert np.allclose(d["nonlin"], [-0.2, 0.25, -0.2], atol=0.03) and d["nonlin_r2"] > 0.9
+
+
+def test_forward_arm_recovers_within_layer_sign_under_confound():
+    """H7 analysis (Stage 7). Plant a NEGATIVE within-layer coupling df = -0.6 dc plus a per-unit
+    confound c0 that also drives df; forward_arm must report Spearman < 0 AND keep the sign in the
+    partial that removes c0. Catches a sign flip or a partial that regresses out the effect itself."""
+    c0 = rng.uniform(-0.6, 0.1, 3000)
+    dc = 0.15 * rng.standard_normal(3000) + 0.3 * (c0 + 0.3)       # intervention-induced change, correlated with c0
+    df = -0.6 * dc + 0.2 * c0 + 0.02 * rng.standard_normal(3000)   # within-layer c->f, plus a c0 confound
+    fa = forward_arm(dc, df, c0)
+    assert fa["spearman"] < -0.2 and fa["partial_given_c0"] < -0.2 and fa["slope"] < 0
+    assert fa["n"] == 3000
+    # a purely confound-mediated relation (df depends only on c0, not on dc beyond c0) must NOT survive the partial
+    df2 = 0.8 * c0 + 0.02 * rng.standard_normal(3000)
+    assert abs(forward_arm(dc, df2, c0)["partial_given_c0"]) < 0.15
 
 
 # ------------------------------------------------------------------ training loop

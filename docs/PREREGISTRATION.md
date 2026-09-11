@@ -48,6 +48,22 @@ Prediction across Pythia sizes: from the checkpoint where mean c reaches 80 % of
 by < 25 % while the fraction of units with c < −0.5 at least doubles. Falsified if the mean keeps
 growing proportionally with the tail.
 
+## H7 — single-layer forward arm c → f (Stage 7, arm `component:<α>` with `--layers L`)
+Amendment (added after the five-seed Stage-4 run). H4's forward arm was tested with ALL layers >= 1
+intervened at once and came out with the wrong sign; the retraction argued this is a CROSS-layer effect
+(a changed write in layer L alters what layer L+1 reads), not the within-layer c → f coupling H4 was
+about. H7 tests the within-layer coupling directly by intervening on ONE layer L at a time (doses
+α ∈ {−1, +2}, 5 seeds, matched to the same-seed `control`), and measuring, on the intervened layer L
+itself, dc_k = c_k(arm) − c_k(control) and df_k = f_k(arm) − f_k(control).
+Prediction at the +2000 and +7800 snapshots, for both doses: within-layer Spearman(dc_k, df_k) < −0.2
+(a unit made less anti-aligned, dc > 0, fires less, df < 0) in a majority of the intervened layers
+(≥ 2 of L ∈ {1,2,3,4}), and the partial ρ(dc, df | c0) keeps that sign. Separation check: the downstream
+cross-layer firing footprint (mean |df| on layers L' > L, whose geometry was not touched) is present and
+comparable to or larger than the within-layer |df̄|, identifying it as the pathway that produced the
+misleading all-layer sign. Falsified if the within-layer Spearman is ≥ 0 in ≥ 3/4 layers at both late
+snapshots, or |within-layer Spearman| < 0.1 everywhere (no measurable within-layer forward arm).
+Neutral outcome (reported, not a pass): within-layer sign negative but |Spearman| < 0.2.
+
 ## Controls that must be reported alongside every result
 * permutation control (destroys correspondence) — expected ≈ 0
 * hidden-basis rotation control — expected: Σ a_k·d_k exactly unchanged, mean c approximately unchanged,

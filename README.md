@@ -66,6 +66,7 @@ docs/                 sandbox results (baseline expectations), literature sweep,
 | 4 | `04_intervene.py` | **preregistered** continued-pretraining interventions: `component:<α>` (c→f) and `bias:<β>:random` (f→c), multi-seed | ~1.5 min / 1000 steps for 70m at 32×2048 tokens/step |
 | 5 | `05_analyze_interventions.py` | arm-vs-matched-control comparison across seeds, dose-response fits, growth law, markdown report | seconds |
 | 6 | `06_toy.py` | CPU toy transformer reproducing Phase 1 sign prediction and both intervention arms | ~4 min per 1500-step run on one core |
+| 7 | `04_intervene.py --layers L --outdir 07_single_layer` + `07_single_layer_forward.py` | **preregistered (H7)** single-layer forward arm: intervene one layer at a time and separate the within-layer c→f coupling from the cross-layer path that flipped H4's sign | ~6 h for 70m (4 layers × 2 doses × 5 seeds; controls reused from Stage 4) |
 
 ### Suggested H100 run plan (≈ one working day)
 
@@ -91,6 +92,18 @@ for s in 0 1 2 3 4; do
   done
 done
 python scripts/05_analyze_interventions.py --model EleutherAI/pythia-70m --revision step8000
+
+# Stage 7: single-layer forward arm (H7) — removes the cross-layer confound in H4 (GPU; ~6 h for 70m).
+# Reuses Stage-4 control_seed*.pkl (same seeds). Or just: bash run_all.sh stage7
+for s in 0 1 2 3 4; do
+  for L in 1 2 3 4; do
+    for arm in component:-1 component:2; do
+      python scripts/04_intervene.py --model EleutherAI/pythia-70m --revision step8000 \
+          --arm $arm --layers $L --outdir 07_single_layer --seed $s --bf16
+    done
+  done
+done
+python scripts/07_single_layer_forward.py --model EleutherAI/pythia-70m --revision step8000
 ```
 
 Decision rules for each stage are in `docs/PREREGISTRATION.md`. Read it before Stage 4 and do not

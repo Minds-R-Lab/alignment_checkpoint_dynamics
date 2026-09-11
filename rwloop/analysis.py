@@ -44,6 +44,22 @@ def dose_response(df_realized, dc, c0) -> dict:
                 spearman=float(spearmanr(df_realized, dc)[0]))
 
 
+def forward_arm(dc, df, c0) -> dict:
+    """Within-layer forward arm c -> f, measured on ONE layer of a single-layer intervention.
+
+    dc, df are arm-minus-control changes in cos and firing for the units of the intervened layer; c0 is
+    their pre-intervention cos. The forward-arm hypothesis (H7) is that, within a layer, making a unit
+    LESS anti-aligned (dc > 0) lowers its firing (df < 0), i.e. Spearman(dc, df) < 0. `partial_given_c0`
+    removes the static firing-alignment relationship so only the intervention-INDUCED coupling remains.
+    `slope` is the OLS df ~ dc coefficient (sign-comparable to a derivative dν/dc)."""
+    dc, df, c0 = np.asarray(dc, float), np.asarray(df, float), np.asarray(c0, float)
+    ok = np.isfinite(dc) & np.isfinite(df) & np.isfinite(c0)
+    dc, df, c0 = dc[ok], df[ok], c0[ok]
+    slope = float(np.polyfit(dc, df, 1)[0]) if dc.std() > 0 else float("nan")
+    return dict(spearman=float(spearmanr(dc, df)[0]), partial_given_c0=partial_spearman(dc, df, c0),
+                slope=slope, dc_mean=float(dc.mean()), df_mean=float(df.mean()), n=int(dc.size))
+
+
 def growth_law(f0, c0, dc) -> dict:
     """dc_i = a (f_i - mean f) + b c_i + const on a control run."""
     X = np.stack([f0 - f0.mean(), c0, np.ones_like(f0)], 1)
